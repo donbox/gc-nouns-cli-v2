@@ -7,6 +7,7 @@ the Pack/Registry work:
 
 - `city`
 - `rig`
+- `session`
 - `agent`
 - `formula`
 - `order`
@@ -30,6 +31,39 @@ here too:
 - keep review focused on command names, signatures, and output shape before
   implementation details
 
+## Corrected Starting Frame
+
+After the first pass, a few corrections seem important enough to treat as the
+new baseline:
+
+- `session` is the primary runtime noun
+- `agent` is better understood as a session template/stamping noun than as the
+  runtime thing itself
+- `skill`, `mcp`, and overlays are not obvious peer nouns; they look more like
+  agent/session components
+- the machine-known nouns appear much smaller than the first pass assumed
+
+This note treats those as the new working assumptions.
+
+## Machine-Wide Concepts
+
+At the moment, the machine-wide concepts appear to be:
+
+| Noun | Why it is machine-known |
+|---|---|
+| `city` | unit of deployment and management |
+| `rig` | needed so any directory can be mapped back to an in-scope city/rig |
+| `pack` | registry and cache behavior make it machine-known |
+
+Things that do **not** appear machine-wide in their own right:
+
+- `skill`
+- `agent`
+- `mcp`
+
+Their footprint seems to come transitively from the pack or session they are
+attached to, not from a separate machine-level registry of their own.
+
 ## In-Scope Nouns
 
 The nouns below appear to matter most for the next pass.
@@ -38,11 +72,12 @@ The nouns below appear to matter most for the next pass.
 |---|---|
 | `city` | root operational/project container |
 | `rig` | named scoped environment or subdivision within a city |
-| `agent` | runtime worker or persona attached to a city/rig |
+| `session` | live runtime instance |
+| `agent` | session template / stamping definition |
 | `formula` | reusable declarative logic unit |
 | `order` | invocation or execution request |
-| `skill` | reusable capability bundle |
-| `mcp` | external tool/provider integration |
+| `skill` | portable capability bundle attached through agent/session composition |
+| `mcp` | external tool/provider integration attached through agent/session composition |
 
 This table is intentionally provisional. One of the main risks in the current
 surface is that some of these nouns may really be:
@@ -55,13 +90,14 @@ surface is that some of these nouns may really be:
 
 These are the main issues I see before we start inventing signatures.
 
-### 1. Some nouns are containers, some are declarations, some are runtime actors
+### 1. Some nouns are containers, some are runtime actors, some are template components
 
 The set mixes at least three kinds of things:
 
 - containers: `city`, `rig`
-- runtime actors: `agent`
-- declarations/config: `formula`, `order`, `skill`, `mcp`
+- runtime actors: `session`
+- template/config: `agent`, `formula`, `order`
+- template components: `skill`, `mcp`, overlays
 
 If the CLI treats all of them as peer nouns with the same command grammar, we
 risk a surface that is mechanically consistent but semantically awkward.
@@ -71,6 +107,7 @@ risk a surface that is mechanically consistent but semantically awkward.
 Some likely questions:
 
 - does `rig` stand alone, or is it always addressed through a city?
+- is `session` a top-level noun with city/rig targeting, or a subresource?
 - is `agent` a top-level noun, or a city/rig subresource?
 - does `formula` live on its own, or under the city/rig that owns it?
 - is `mcp` machine-level configuration, city-level configuration, or both?
@@ -85,7 +122,8 @@ For these nouns, the likely story is less uniform:
 
 - `city` may be ambient
 - `rig` may be ambient for inspection but explicit for mutation
-- `agent` probably should not silently target "whichever one is nearby"
+- `session` probably should not silently target "whichever one is nearby"
+- `agent` probably wants stronger targeting than a plain ambient lookup
 - `mcp` may have no good ambient target at all
 
 The CLI will feel much better if we explicitly decide where ambient behavior is
@@ -95,9 +133,10 @@ safe versus where exact addressing is required.
 
 Examples:
 
-- `agent` likely needs strong single-object commands
+- `session` likely needs strong single-object commands
+- `agent` likely needs strong single-object commands too, but of a different kind
 - `formula` may want both collection and single-object workflows
-- `skill` may be more discovery/import-oriented than mutation-oriented
+- `skill` may be more inspection/promotion-oriented than mutation-oriented
 - `mcp` may be mostly list/show/configure/test
 
 This matters because we should not assume every noun wants:
@@ -136,10 +175,11 @@ If a noun mixes both, we should decide whether:
 
 These nouns appear highly connected:
 
-- agents run in rigs or cities
+- sessions run in rigs or cities
+- agents stamp sessions
 - orders may invoke formulas
 - skills may depend on MCP connections
-- formulas may be referenced by orders or agents
+- formulas may be referenced by orders, agents, or sessions
 
 We should expect relationship-view commands or output to matter fairly early,
 even if we do not design them immediately.
@@ -153,9 +193,8 @@ The Pack/Registry work found a productive split between:
 
 That same fault line may show up here, especially around:
 
-- `skill`
-- `mcp`
-- perhaps `agent` templates or defaults
+- `pack`
+- perhaps `city` discovery data
 
 We should stay alert for cases where a separate admin/config noun is cleaner
 than forcing everything into one top-level surface.
@@ -181,9 +220,19 @@ tree too early.
 
 - it is user-visible
 - it has strong single-object identity
-- it likely mixes config and operational verbs
+- it stamps session working directories and runtime defaults
+- but it may be more template/provisioning than runtime lifecycle
 
-### Hypothesis 3: `formula` and `order` may form a producer/consumer pair
+### Hypothesis 3: `session` is the most important runtime noun
+
+`session` now looks like the live phenomenon that users actually inspect,
+interact with, and manage. That likely means:
+
+- session lifecycle verbs should be designed early
+- session identity/addressability matters more than agent identity for runtime UX
+- any CLI that over-centers `agent` risks confusing template and runtime layers
+
+### Hypothesis 4: `formula` and `order` may form a producer/consumer pair
 
 There is a decent chance that:
 
@@ -192,28 +241,104 @@ There is a decent chance that:
 
 If so, their command grammars probably should not be identical.
 
-### Hypothesis 4: `skill` and `mcp` may want stronger config/discovery affordances
+### Hypothesis 5: `skill`, `mcp`, and overlays are better treated as agent/session components first
 
-These nouns may end up closer to:
+The current structure strongly suggests:
 
-- import/install/search/list/show
+- overlays are init-time projection/stamping material
+- skills are portable capabilities that can evolve over session lifetime
+- MCP entries are agent/session-attached tool integrations
 
-than to:
+That means these may not want peer top-level noun status in POR, even if they
+eventually deserve dedicated helper surfaces.
 
-- start/stop/run
+### Hypothesis 6: skill lifecycle is a key seam
 
-That means we should be careful not to let runtime nouns dictate their
-surface.
+Skills look different from overlays in one important way:
+
+- overlays appear init-time only
+- skills can change over a session's lifetime
+- some earlier design work explicitly contemplated promoting session-created
+  skills back into authored pack state
+
+That suggests a likely lifecycle:
+
+- baseline skills come from pack/city/agent definition
+- sessions accumulate additional skills over time
+- selected session-added skills may be explicitly promoted back into durable
+  authored state
+
+If this holds, `skill` is not just static pack content; it is a bridge between
+runtime accumulation and durable authored configuration.
+
+## Skill Design / Release Reality Check
+
+The earlier skill design work lives primarily in:
+
+- `/Users/dbox/repos/gc/gascity/docs/packv2/doc-agent-v2.md`
+
+Important companion docs:
+
+- `/Users/dbox/repos/gc/gascity/docs/packv2/doc-loader-v2.md`
+- `/Users/dbox/repos/gc/gascity/docs/packv2/doc-conformance-matrix.md`
+- `/Users/dbox/repos/gc/gascity/docs/packv2/skew-analysis.md`
+
+### What the design note says
+
+The PackV2 agent design note says:
+
+- skills use the Agent Skills standard
+- skills can be city-wide or per-agent
+- the first slice is current-city-pack only
+- imported-pack skill catalogs are later
+- the first skills CLI slice is list-only:
+  - `gc skill list`
+  - `gc skill list --agent <name>`
+  - `gc skill list --session <id>`
+- skill promotion is explicitly design-noted as a later flow
+- promotion is an explicit human decision rather than automatic backflow
+
+The note also frames overlays, skills, and MCP as assets that live under the
+agent/city pack structure rather than as machine-global objects.
+
+### What the documented release reality says
+
+The concrete release artifacts I could verify locally are the public tags
+`v0.14.0` and `v0.14.1`.
+
+Those release snapshots show something much narrower:
+
+- `docs/packv2/doc-agent-v2.md` is not present in either release tag
+- the released CLI reference still documents `gc skill` as the old curated
+  topic viewer, not as a real skill noun
+- the conformance/skew docs on `main` still mark pack `skills/` discovery and
+  MCP TOML abstraction as documented-but-not-implemented
+
+So the practical lesson is:
+
+- the skill/session/agent design note is ahead of what the released product
+  actually exposes
+- the release reality is still pre-skill-product in CLI terms
+- we should be careful to distinguish:
+  - designed direction
+  - current `main` docs
+  - actually released behavior
+
+That gap is useful. It means the next CLI design pass should not assume there
+is already a stable, released skill noun we are constrained by.
 
 ## First Questions To Answer
 
 The most valuable next-step questions appear to be:
 
-1. Which nouns are truly top-level nouns versus attachments/subresources?
-2. Which nouns are ambiently targetable?
-3. Which nouns are primarily declarative versus operational?
-4. Where do machine-level settings need to exist, if anywhere?
+1. Is `session` the primary runtime noun, with `agent` explicitly treated as
+   template/provisioning?
+2. Which nouns are truly top-level nouns versus attachments/subresources?
+3. Which nouns are ambiently targetable?
+4. Which nouns are primarily declarative versus operational?
 5. Which relationships must be visible in POR output?
+6. What is the explicit lifecycle for session-added skills and promotion back
+   into pack-owned state?
 
 ## Parked Questions
 

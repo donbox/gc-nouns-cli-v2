@@ -10,6 +10,7 @@ nouns, including:
 
 - `city`
 - `rig`
+- `session`
 - `agent`
 - `formula`
 - `order`
