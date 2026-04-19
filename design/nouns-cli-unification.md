@@ -39,6 +39,9 @@ new baseline:
 - `session` is the primary runtime noun
 - `agent` is better understood as a session template/stamping noun than as the
   runtime thing itself
+- `session` and `agent` still need to be treated as peers in the CLI design;
+  any symmetry or asymmetry between them should be deliberate rather than
+  accidental
 - `skill`, `mcp`, and overlays are not obvious peer nouns; they look more like
   agent/session components
 - the machine-known nouns appear much smaller than the first pass assumed
@@ -60,6 +63,7 @@ Things that do **not** appear machine-wide in their own right:
 - `skill`
 - `agent`
 - `mcp`
+- overlays
 
 Their footprint seems to come transitively from the pack or session they are
 attached to, not from a separate machine-level registry of their own.
@@ -78,6 +82,7 @@ The nouns below appear to matter most for the next pass.
 | `order` | invocation or execution request |
 | `skill` | portable capability bundle attached through agent/session composition |
 | `mcp` | external tool/provider integration attached through agent/session composition |
+| `overlay` | static stamped material attached through pack/agent/session composition |
 
 This table is intentionally provisional. One of the main risks in the current
 surface is that some of these nouns may really be:
@@ -85,6 +90,11 @@ surface is that some of these nouns may really be:
 - first-class nouns
 - configuration attached to another noun
 - execution subcommands rather than nouns
+
+There is also a fourth category worth watching for:
+
+- high-frequency action verbs that may deserve top-level ergonomic treatment
+  even if they are not nouns in the same sense as the objects above
 
 ## Early Design Pressure
 
@@ -109,6 +119,8 @@ Some likely questions:
 - does `rig` stand alone, or is it always addressed through a city?
 - is `session` a top-level noun with city/rig targeting, or a subresource?
 - is `agent` a top-level noun, or a city/rig subresource?
+- if `session` and `agent` are peers, where do shared verbs intentionally
+  align and where should they diverge?
 - does `formula` live on its own, or under the city/rig that owns it?
 - is `mcp` machine-level configuration, city-level configuration, or both?
 
@@ -171,6 +183,11 @@ If a noun mixes both, we should decide whether:
 - the noun owns both workflows
 - or one workflow belongs under another noun
 
+We should also leave room for a small set of highly ergonomic "do this now"
+operations to remain especially prominent, even if they do not map cleanly to
+one noun family. The product simplification pass surfaced `mail`, `sling`, and
+possibly `nudge` as candidates for this exception.
+
 ### 6. Relationship visibility will matter early
 
 These nouns appear highly connected:
@@ -223,6 +240,10 @@ tree too early.
 - it stamps session working directories and runtime defaults
 - but it may be more template/provisioning than runtime lifecycle
 
+The key design constraint is that `agent` should not simply become "the less
+important cousin of session." If `session` and `agent` are peers, the command
+surface should show that on purpose.
+
 ### Hypothesis 3: `session` is the most important runtime noun
 
 `session` now looks like the live phenomenon that users actually inspect,
@@ -252,6 +273,19 @@ The current structure strongly suggests:
 That means these may not want peer top-level noun status in POR, even if they
 eventually deserve dedicated helper surfaces.
 
+The open complication is that all three may also have pack-wide forms:
+
+- pack-wide skills
+- pack-wide MCP definitions or templates
+- pack-wide overlays
+
+So the real design task is probably not "bury these under agent/session and
+move on." It is to find the shared ownership pattern across:
+
+- pack-owned definitions
+- agent-attached baseline composition
+- session-effective/runtime realization
+
 ### Hypothesis 6: skill lifecycle is a key seam
 
 Skills look different from overlays in one important way:
@@ -270,6 +304,21 @@ That suggests a likely lifecycle:
 
 If this holds, `skill` is not just static pack content; it is a bridge between
 runtime accumulation and durable authored configuration.
+
+That also suggests we should be careful not to "simplify away" the current
+skill idea. It is powerful enough that even if the current `gc skill` surface
+is refactored heavily, the concept itself should survive.
+
+### Hypothesis 7: session/agent should be designed as a pair
+
+The product simplification pass reinforced this strongly:
+
+- `session` is the live runtime object
+- `agent` is the authored/template object
+- users will compare them constantly
+
+So the next pass should probably treat them as a paired design problem rather
+than finishing one and only later revisiting the other.
 
 ## Skill Design / Release Reality Check
 
@@ -300,6 +349,9 @@ The PackV2 agent design note says:
 
 The note also frames overlays, skills, and MCP as assets that live under the
 agent/city pack structure rather than as machine-global objects.
+
+That is another sign the next pass should inspect all three together rather
+than treating only skills as special.
 
 ### What the documented release reality says
 
@@ -333,12 +385,31 @@ The most valuable next-step questions appear to be:
 
 1. Is `session` the primary runtime noun, with `agent` explicitly treated as
    template/provisioning?
-2. Which nouns are truly top-level nouns versus attachments/subresources?
-3. Which nouns are ambiently targetable?
-4. Which nouns are primarily declarative versus operational?
-5. Which relationships must be visible in POR output?
-6. What is the explicit lifecycle for session-added skills and promotion back
+2. If `session` and `agent` are peers, what symmetry or asymmetry between them
+   should be explicit in the command surface?
+3. Which nouns are truly top-level nouns versus attachments/subresources?
+4. Which nouns are ambiently targetable?
+5. Which nouns are primarily declarative versus operational?
+6. Which relationships must be visible in POR output?
+7. What is the explicit lifecycle for session-added skills and promotion back
    into pack-owned state?
+8. What is the shared ownership pattern across pack-wide, agent-attached, and
+   session-effective forms of skills, MCP, and overlays?
+
+## Implications From The Product Simplification Pass
+
+The parallel product simplification work suggests a few constraints that this
+note should carry forward:
+
+1. Some operations may deserve top-level ergonomic treatment even if they do
+   not map neatly to one noun. We should keep that in mind before burying every
+   action under a noun tree.
+2. `mail`, `sling`, and possibly `nudge` feel like "finally use the city"
+   operations. That makes their eventual placement partly an ergonomics
+   question, not just a taxonomy question.
+3. This noun work is likely the gating step before the broader product-zoning
+   work can advance much further. That means it is worth being deliberate here,
+   especially on the session/agent/skill/mcp/overlay cluster.
 
 ## Parked Questions
 
